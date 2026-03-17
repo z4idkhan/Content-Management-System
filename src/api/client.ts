@@ -12,7 +12,7 @@
 // ============================================================
 
 const BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://headless-cms-news.onrender.com";
+  import.meta.env.VITE_API_BASE_URL || "https://headless-cms-e1lg.onrender.com";
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("cms_token");
