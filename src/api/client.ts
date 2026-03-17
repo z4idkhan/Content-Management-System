@@ -2,14 +2,11 @@
 // API Client — Central HTTP client for your headless CMS
 // ============================================================
 //
-// HOW TO CONNECT YOUR HEADLESS CMS:
+// HOW TO CONNECT HEADLESS CMS:
 // 1. Set API_BASE_URL to your CMS API endpoint
 // 2. Set your auth token retrieval logic in getAuthHeaders()
 // 3. All service files use this client — no other changes needed
-//
-// Example:
-//   const API_BASE_URL = "https://your-cms-api.com/api";
-// ============================================================
+
 
 const BASE_URL =
   (import.meta as any).env?.VITE_API_BASE_URL ||
