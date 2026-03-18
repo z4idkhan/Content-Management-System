@@ -3,114 +3,230 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { settingsApi, type SiteSettings } from "@/lib/api";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+});
+
+export const articlesApi = {
+  getAll: async () => {
+    const res = await api.get("/articles");
+    return res.data; // ✅ IMPORTANT
+  },
+
+  create: async (data: any) => {
+    const res = await api.post("/articles", data);
+    return res.data;
+  },
+};
 
 const SettingsPage = () => {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
 
-  useEffect(() => { settingsApi.get().then(setSettings); }, []);
+  // =========================
+  // LOAD SETTINGS (FIXED)
+  // =========================
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await settingsApi.get();
+        setSettings(data);
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load settings");
+      }
+    };
 
+    load();
+  }, []);
+
+  // =========================
+  // SAVE SETTINGS (FIXED)
+  // =========================
   const handleSave = async () => {
     if (!settings) return;
-    setSaving(true);
-    await settingsApi.update(settings);
-    toast.success("Settings saved");
-    setSaving(false);
+
+    try {
+      setSaving(true);
+      await settingsApi.update(settings);
+      toast.success("Settings saved");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
   };
 
+  // =========================
+  // CHANGE PASSWORD (FIXED)
+  // =========================
   const handleChangePassword = async () => {
-    if (!currentPw || !newPw) { toast.error("Fill in both fields"); return; }
-    if (newPw.length < 6) { toast.error("Password must be at least 6 characters"); return; }
-    await settingsApi.changePassword(currentPw, newPw);
-    setCurrentPw("");
-    setNewPw("");
-    toast.success("Password updated");
+    if (!currentPw.trim() || !newPw.trim()) {
+      toast.error("Fill in both fields");
+      return;
+    }
+
+    if (newPw.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
+    try {
+      setPwLoading(true);
+
+      await settingsApi.changePassword(currentPw.trim(), newPw.trim());
+
+      setCurrentPw("");
+      setNewPw("");
+
+      toast.success("Password updated");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update password"
+      );
+    } finally {
+      setPwLoading(false);
+    }
   };
 
-  if (!settings) return <DashboardLayout><div className="text-muted-foreground">Loading...</div></DashboardLayout>;
+  // =========================
+  // LOADING STATE
+  // =========================
+  if (!settings) {
+    return (
+      <DashboardLayout>
+        <div className="text-muted-foreground">Loading...</div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
+      {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-          <p className="text-muted-foreground text-sm">Configure your CMS platform</p>
+          <p className="text-muted-foreground text-sm">
+            Configure your CMS platform
+          </p>
         </div>
-        <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-gold-hover transition-colors disabled:opacity-50">
-          <Save size={16} /> {saving ? "Saving..." : "Save Changes"}
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium disabled:opacity-50"
+        >
+          <Save size={16} />
+          {saving ? "Saving..." : "Save Changes"}
         </button>
       </div>
 
       <div className="max-w-2xl space-y-6">
+        {/* GENERAL */}
         <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-foreground font-semibold mb-4 flex items-center gap-2">⚙️ General</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Site Name</label>
-              <input value={settings.siteName} onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
-                className="w-full px-3 py-2 rounded-md bg-secondary border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Site URL</label>
-              <input value={settings.siteUrl} onChange={(e) => setSettings({ ...settings, siteUrl: e.target.value })}
-                className="w-full px-3 py-2 rounded-md bg-secondary border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-          </div>
+          <h2 className="font-semibold mb-4">⚙️ General</h2>
+
+          <input
+            value={settings.siteName}
+            onChange={(e) =>
+              setSettings((prev) =>
+                prev ? { ...prev, siteName: e.target.value } : prev
+              )
+            }
+            placeholder="Site Name"
+            className="w-full mb-3 px-3 py-2 border rounded-md"
+          />
+
+          <input
+            value={settings.siteUrl}
+            onChange={(e) =>
+              setSettings((prev) =>
+                prev ? { ...prev, siteUrl: e.target.value } : prev
+              )
+            }
+            placeholder="Site URL"
+            className="w-full px-3 py-2 border rounded-md"
+          />
         </div>
 
+        {/* NOTIFICATIONS */}
         <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-foreground font-semibold mb-4 flex items-center gap-2">🔔 Notifications</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">Email Notifications</p>
-                <p className="text-xs text-muted-foreground">Receive email alerts for important events</p>
-              </div>
-              <button onClick={() => setSettings({ ...settings, emailNotifications: !settings.emailNotifications })}
-                className={`w-11 h-6 rounded-full transition-colors relative ${settings.emailNotifications ? "bg-primary" : "bg-secondary"}`}>
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-foreground transition-transform ${settings.emailNotifications ? "left-5" : "left-0.5"}`} />
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">Activity Alerts</p>
-                <p className="text-xs text-muted-foreground">Get notified when content is published or edited</p>
-              </div>
-              <button onClick={() => setSettings({ ...settings, activityAlerts: !settings.activityAlerts })}
-                className={`w-11 h-6 rounded-full transition-colors relative ${settings.activityAlerts ? "bg-primary" : "bg-secondary"}`}>
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-foreground transition-transform ${settings.activityAlerts ? "left-5" : "left-0.5"}`} />
-              </button>
-            </div>
-          </div>
+          <h2 className="font-semibold mb-4">🔔 Notifications</h2>
+
+          <button
+            onClick={() =>
+              setSettings((prev) =>
+                prev
+                  ? { ...prev, emailNotifications: !prev.emailNotifications }
+                  : prev
+              )
+            }
+            className="mb-3"
+          >
+            Email Notifications: {settings.emailNotifications ? "ON" : "OFF"}
+          </button>
+
+          <button
+            onClick={() =>
+              setSettings((prev) =>
+                prev
+                  ? { ...prev, activityAlerts: !prev.activityAlerts }
+                  : prev
+              )
+            }
+          >
+            Activity Alerts: {settings.activityAlerts ? "ON" : "OFF"}
+          </button>
         </div>
 
+        {/* SECURITY */}
         <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-foreground font-semibold mb-4 flex items-center gap-2">🔒 Security</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">Two-Factor Authentication</p>
-                <p className="text-xs text-muted-foreground">Add an extra layer of security to your account</p>
-              </div>
-              <button onClick={() => setSettings({ ...settings, twoFactor: !settings.twoFactor })}
-                className={`w-11 h-6 rounded-full transition-colors relative ${settings.twoFactor ? "bg-primary" : "bg-secondary"}`}>
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-foreground transition-transform ${settings.twoFactor ? "left-5" : "left-0.5"}`} />
-              </button>
-            </div>
+          <h2 className="font-semibold mb-4">🔒 Security</h2>
 
-            <div>
-              <p className="text-sm font-medium text-foreground mb-2">Change Password</p>
-              <div className="flex gap-2">
-                <input type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} placeholder="Current password"
-                  className="flex-1 px-3 py-2 rounded-md bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                <input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="New password"
-                  className="flex-1 px-3 py-2 rounded-md bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-                <button onClick={handleChangePassword} className="px-4 py-2 rounded-md bg-secondary text-foreground text-sm font-medium hover:bg-muted transition-colors">Update</button>
-              </div>
-            </div>
+          <button
+            onClick={() =>
+              setSettings((prev) =>
+                prev ? { ...prev, twoFactor: !prev.twoFactor } : prev
+              )
+            }
+            className="mb-4"
+          >
+            Two Factor: {settings.twoFactor ? "ON" : "OFF"}
+          </button>
+
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={currentPw}
+              onChange={(e) => setCurrentPw(e.target.value)}
+              placeholder="Current password"
+              className="flex-1 px-3 py-2 border rounded-md"
+            />
+
+            <input
+              type="password"
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              placeholder="New password"
+              className="flex-1 px-3 py-2 border rounded-md"
+            />
+
+            <button
+              onClick={handleChangePassword}
+              disabled={pwLoading}
+              className="px-4 py-2 bg-secondary rounded-md"
+            >
+              {pwLoading ? "Updating..." : "Update"}
+            </button>
           </div>
         </div>
       </div>

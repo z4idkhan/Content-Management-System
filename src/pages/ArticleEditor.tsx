@@ -1,101 +1,222 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { articlesApi, categoriesApi, type Article, type Category } from "@/lib/api";
+import {
+  articlesApi,
+  categoriesApi,
+  type Category,
+  type Article, // ✅ IMPORTANT
+} from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Bold, Italic, Heading2, List, Link as LinkIcon, Image, Code } from "lucide-react";
+import {
+  ArrowLeft,
+  Bold,
+  Italic,
+  Heading2,
+  List,
+  Link as LinkIcon,
+  Image,
+  Code,
+} from "lucide-react";
 import { toast } from "sonner";
 
 const ArticleEditor = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>(); // ✅ FIXED
   const { user } = useAuth();
-  const isEdit = !!id;
+
+  const isEdit = Boolean(id);
   const editorRef = useRef<HTMLDivElement>(null);
-  const initializedRef = useRef(false);
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
+  // =========================
+  // LOAD DATA
+  // =========================
   useEffect(() => {
-    categoriesApi.getAll().then(setCategories);
-    if (isEdit) {
-      articlesApi.getById(id).then((a) => {
-        if (a) {
-          setTitle(a.title);
-          setCategory(a.category);
-          setStatus(a.status);
-          if (editorRef.current) {
-            editorRef.current.innerHTML = a.content;
+    const loadData = async () => {
+      try {
+        setInitialLoading(true);
+
+        const cats = await categoriesApi.getAll();
+        setCategories(cats ?? []);
+
+        if (isEdit && id) {
+          const article: Article = await articlesApi.getById(id);
+
+          if (!article) {
+            toast.error("Article not found");
+            navigate("/articles");
+            return;
           }
+
+          setTitle(article.title ?? "");
+          setCategory(article.category ?? "");
+          setStatus(article.status ?? "draft");
+
+          requestAnimationFrame(() => {
+            if (editorRef.current) {
+              editorRef.current.innerHTML =
+                article.content ?? "<p><br></p>";
+            }
+          });
+        } else {
+          requestAnimationFrame(() => {
+            if (editorRef.current) {
+              editorRef.current.innerHTML = "<p><br></p>";
+            }
+          });
         }
-      });
-    }
-  }, [id, isEdit]);
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load data");
+      } finally {
+        setInitialLoading(false);
+      }
+    };
 
-  // Set initial empty paragraph for new articles
-  useEffect(() => {
-    if (!isEdit && editorRef.current && !initializedRef.current) {
-      initializedRef.current = true;
-      editorRef.current.innerHTML = "<p><br></p>";
-      editorRef.current.focus();
-    }
-  }, [isEdit]);
+    loadData();
+  }, [id, isEdit, navigate]);
 
+  // =========================
+  // TEXT FORMATTING
+  // =========================
   const execCommand = useCallback((cmd: string, value?: string) => {
     document.execCommand(cmd, false, value);
     editorRef.current?.focus();
   }, []);
 
+  // =========================
+  // SAVE HANDLER (CLEAN)
+  // =========================
   const handleSave = async (saveStatus: "draft" | "published") => {
-    if (!title.trim()) { toast.error("Title is required"); return; }
-    setLoading(true);
-    const htmlContent = editorRef.current?.innerHTML || "";
+    if (!title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+
     try {
-      if (isEdit) {
-        await articlesApi.update(id, { title, content: htmlContent, category, status: saveStatus });
+      setLoading(true);
+
+      const htmlContent =
+        editorRef.current?.innerHTML || "<p><br></p>";
+
+      const payload = {
+        title: title.trim(),
+        content: htmlContent,
+        category: category || "Uncategorized",
+        status: saveStatus,
+        author: user?.name || "Unknown",
+      };
+
+      if (isEdit && id) {
+        await articlesApi.update(id, payload);
         toast.success("Article updated");
       } else {
-        await articlesApi.create({ title, content: htmlContent, category: category || "Uncategorized", status: saveStatus, author: user?.name || "Unknown" });
+        await articlesApi.create(payload);
         toast.success("Article created");
       }
+
       navigate("/articles");
-    } catch { toast.error("Failed to save"); }
-    setLoading(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to save article"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // =========================
+  // TOOLBAR
+  // =========================
   const toolbarButtons = [
     { icon: Bold, action: () => execCommand("bold"), label: "Bold" },
     { icon: Italic, action: () => execCommand("italic"), label: "Italic" },
-    { icon: Heading2, action: () => execCommand("formatBlock", "h2"), label: "Heading" },
-    { icon: List, action: () => execCommand("insertUnorderedList"), label: "List" },
-    { icon: Code, action: () => execCommand("formatBlock", "pre"), label: "Code" },
-    { icon: LinkIcon, action: () => { const url = prompt("Enter URL:"); if (url) execCommand("createLink", url); }, label: "Link" },
-    { icon: Image, action: () => { const url = prompt("Enter image URL:"); if (url) execCommand("insertImage", url); }, label: "Image" },
+    {
+      icon: Heading2,
+      action: () => execCommand("formatBlock", "h2"),
+      label: "Heading",
+    },
+    {
+      icon: List,
+      action: () => execCommand("insertUnorderedList"),
+      label: "List",
+    },
+    {
+      icon: Code,
+      action: () => execCommand("formatBlock", "pre"),
+      label: "Code",
+    },
+    {
+      icon: LinkIcon,
+      action: () => {
+        const url = prompt("Enter URL:");
+        if (url) execCommand("createLink", url);
+      },
+      label: "Link",
+    },
+    {
+      icon: Image,
+      action: () => {
+        const url = prompt("Enter image URL:");
+        if (url) execCommand("insertImage", url);
+      },
+      label: "Image",
+    },
   ];
+
+  // =========================
+  // LOADING
+  // =========================
+  if (initialLoading) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 text-center text-muted-foreground">
+          Loading editor...
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate("/articles")} className="p-2 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+        <button
+          onClick={() => navigate("/articles")}
+          className="p-2 rounded-md hover:bg-secondary"
+        >
           <ArrowLeft size={18} />
         </button>
+
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-foreground">{isEdit ? "Edit Article" : "New Article"}</h1>
-          <p className="text-muted-foreground text-sm">
-            {isEdit ? "Update your article content" : "Create a new article for your CMS"}
-          </p>
+          <h1 className="text-2xl font-bold">
+            {isEdit ? "Edit Article" : "New Article"}
+          </h1>
         </div>
+
         <div className="flex gap-2">
-          <button onClick={() => handleSave("draft")} disabled={loading}
-            className="px-4 py-2 rounded-md bg-secondary text-foreground text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
+          <button
+            onClick={() => handleSave("draft")}
+            disabled={loading}
+            className="px-4 py-2 bg-secondary rounded-md"
+          >
             Save Draft
           </button>
-          <button onClick={() => handleSave("published")} disabled={loading}
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-gold-hover transition-colors disabled:opacity-50">
+
+          <button
+            onClick={() => handleSave("published")}
+            disabled={loading}
+            className="px-4 py-2 bg-primary text-white rounded-md"
+          >
             {loading ? "Saving..." : "Publish"}
           </button>
         </div>
@@ -103,62 +224,71 @@ const ArticleEditor = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 space-y-4">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Article title..."
-            className="w-full px-4 py-3 rounded-lg bg-card border border-border text-foreground text-lg font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Article title..."
+            className="w-full px-4 py-3 border rounded-lg"
+          />
 
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
-            <div className="flex items-center gap-1 p-2 border-b border-border bg-secondary/50">
+          <div className="border rounded-lg overflow-hidden">
+            <div className="flex gap-1 p-2 border-b">
               {toolbarButtons.map(({ icon: Icon, action, label }) => (
-                <button key={label} onClick={(e) => { e.preventDefault(); action(); }} title={label}
-                  className="p-2 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+                <button
+                  key={label}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    action();
+                  }}
+                  title={label}
+                  className="p-2 hover:bg-gray-200 rounded"
+                >
                   <Icon size={16} />
                 </button>
               ))}
             </div>
+
             <div
               ref={editorRef}
               contentEditable
-              dir="ltr"
-              className="min-h-[400px] p-6 text-foreground focus:outline-none prose prose-invert max-w-none
-                [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2
-                [&_p]:text-foreground [&_p]:mb-2
-                [&_a]:text-primary [&_a]:underline
-                [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:text-foreground
-                [&_pre]:bg-secondary [&_pre]:p-3 [&_pre]:rounded [&_pre]:text-sm [&_pre]:text-foreground
-                [&_code]:bg-secondary [&_code]:px-1 [&_code]:rounded [&_code]:text-sm"
+              className="min-h-[400px] p-6 outline-none"
               suppressContentEditableWarning
             />
           </div>
         </div>
 
         <div className="space-y-4">
-          <div className="bg-card border border-border rounded-lg p-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Category</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 rounded-md bg-secondary border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="">Select category</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.name}>{c.name}</option>
-              ))}
-            </select>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full p-2 border rounded"
+          >
+            <option value="">Select category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          <div>
+            <p>Status:</p>
+            {(["draft", "published"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatus(s)}
+                className={`px-3 py-1 m-1 ${
+                  status === s
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Status</label>
-            <div className="flex gap-2">
-              {(["draft", "published"] as const).map((s) => (
-                <button key={s} onClick={() => setStatus(s)}
-                  className={`flex-1 px-3 py-2 rounded-md text-sm font-medium capitalize transition-colors ${status === s ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-card border border-border rounded-lg p-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Author</label>
-            <p className="text-sm text-muted-foreground">{user?.name || "Unknown"}</p>
-          </div>
+          <p>Author: {user?.name || "Unknown"}</p>
         </div>
       </div>
     </DashboardLayout>
