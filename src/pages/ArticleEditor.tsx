@@ -1,11 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
   articlesApi,
   categoriesApi,
   type Category,
-  type Article, // ✅ IMPORTANT
+  type Article,
 } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -15,18 +15,24 @@ import {
   Heading2,
   List,
   Link as LinkIcon,
-  Image,
+  Image as ImageIcon,
   Code,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import ImageExtension from "@tiptap/extension-image";
+import Placeholder from "@tiptap/extension-placeholder";
+import Heading from "@tiptap/extension-heading";
+
 const ArticleEditor = () => {
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>(); // ✅ FIXED
+  const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
 
   const isEdit = Boolean(id);
-  const editorRef = useRef<HTMLDivElement>(null);
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
@@ -36,9 +42,27 @@ const ArticleEditor = () => {
   const [initialLoading, setInitialLoading] = useState(true);
 
   // =========================
+  // TIPTAP EDITOR
+  // =========================
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Link,
+      ImageExtension,
+      Heading.configure({ levels: [1, 2, 3] }),
+      Placeholder.configure({
+        placeholder: "Start writing... Type '/' for commands",
+      }),
+    ],
+    content: "<p></p>",
+  });
+
+  // =========================
   // LOAD DATA
   // =========================
   useEffect(() => {
+    if (!editor) return;
+
     const loadData = async () => {
       try {
         setInitialLoading(true);
@@ -59,18 +83,7 @@ const ArticleEditor = () => {
           setCategory(article.category ?? "");
           setStatus(article.status ?? "draft");
 
-          requestAnimationFrame(() => {
-            if (editorRef.current) {
-              editorRef.current.innerHTML =
-                article.content ?? "<p><br></p>";
-            }
-          });
-        } else {
-          requestAnimationFrame(() => {
-            if (editorRef.current) {
-              editorRef.current.innerHTML = "<p><br></p>";
-            }
-          });
+          editor.commands.setContent(article.content || "<p></p>");
         }
       } catch (err) {
         console.error(err);
@@ -81,18 +94,25 @@ const ArticleEditor = () => {
     };
 
     loadData();
-  }, [id, isEdit, navigate]);
+  }, [editor, id, isEdit, navigate]);
 
   // =========================
-  // TEXT FORMATTING
+  // SLASH COMMAND
   // =========================
-  const execCommand = useCallback((cmd: string, value?: string) => {
-    document.execCommand(cmd, false, value);
-    editorRef.current?.focus();
-  }, []);
+  const handleSlashCommand = (text: string) => {
+    if (!editor) return;
+
+    const cmd = text.trim().toLowerCase();
+
+    if (cmd === "/h1") editor.chain().focus().toggleHeading({ level: 1 }).run();
+    else if (cmd === "/h2") editor.chain().focus().toggleHeading({ level: 2 }).run();
+    else if (cmd === "/bullet") editor.chain().focus().toggleBulletList().run();
+    else if (cmd === "/code") editor.chain().focus().toggleCodeBlock().run();
+    else if (cmd === "/quote") editor.chain().focus().toggleBlockquote().run();
+  };
 
   // =========================
-  // SAVE HANDLER (CLEAN)
+  // SAVE
   // =========================
   const handleSave = async (saveStatus: "draft" | "published") => {
     if (!title.trim()) {
@@ -103,8 +123,7 @@ const ArticleEditor = () => {
     try {
       setLoading(true);
 
-      const htmlContent =
-        editorRef.current?.innerHTML || "<p><br></p>";
+      const htmlContent = editor?.getHTML() || "<p></p>";
 
       const payload = {
         title: title.trim(),
@@ -123,61 +142,18 @@ const ArticleEditor = () => {
       }
 
       navigate("/articles");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to save article"
-      );
+      toast.error("Failed to save article");
     } finally {
       setLoading(false);
     }
   };
 
   // =========================
-  // TOOLBAR
-  // =========================
-  const toolbarButtons = [
-    { icon: Bold, action: () => execCommand("bold"), label: "Bold" },
-    { icon: Italic, action: () => execCommand("italic"), label: "Italic" },
-    {
-      icon: Heading2,
-      action: () => execCommand("formatBlock", "h2"),
-      label: "Heading",
-    },
-    {
-      icon: List,
-      action: () => execCommand("insertUnorderedList"),
-      label: "List",
-    },
-    {
-      icon: Code,
-      action: () => execCommand("formatBlock", "pre"),
-      label: "Code",
-    },
-    {
-      icon: LinkIcon,
-      action: () => {
-        const url = prompt("Enter URL:");
-        if (url) execCommand("createLink", url);
-      },
-      label: "Link",
-    },
-    {
-      icon: Image,
-      action: () => {
-        const url = prompt("Enter image URL:");
-        if (url) execCommand("insertImage", url);
-      },
-      label: "Image",
-    },
-  ];
-
-  // =========================
   // LOADING
   // =========================
-  if (initialLoading) {
+  if (initialLoading || !editor) {
     return (
       <DashboardLayout>
         <div className="p-6 text-center text-muted-foreground">
@@ -189,6 +165,7 @@ const ArticleEditor = () => {
 
   return (
     <DashboardLayout>
+      {/* HEADER */}
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={() => navigate("/articles")}
@@ -223,6 +200,7 @@ const ArticleEditor = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* EDITOR */}
         <div className="lg:col-span-3 space-y-4">
           <input
             value={title}
@@ -232,31 +210,77 @@ const ArticleEditor = () => {
           />
 
           <div className="border rounded-lg overflow-hidden">
-            <div className="flex gap-1 p-2 border-b">
-              {toolbarButtons.map(({ icon: Icon, action, label }) => (
-                <button
-                  key={label}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    action();
-                  }}
-                  title={label}
-                  className="p-2 hover:bg-gray-200 rounded"
-                >
-                  <Icon size={16} />
-                </button>
-              ))}
+            {/* TOOLBAR */}
+            <div className="flex gap-2 p-2 border-b">
+              <button onClick={() => editor.chain().focus().toggleBold().run()}>
+                <Bold size={16} />
+              </button>
+
+              <button onClick={() => editor.chain().focus().toggleItalic().run()}>
+                <Italic size={16} />
+              </button>
+
+              <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+                <Heading2 size={16} />
+              </button>
+
+              <button onClick={() => editor.chain().focus().toggleBulletList().run()}>
+                <List size={16} />
+              </button>
+
+              <button onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
+                <Code size={16} />
+              </button>
+
+              <button
+                onClick={() => {
+                  const url = prompt("Enter URL");
+                  if (url) editor.chain().focus().setLink({ href: url }).run();
+                }}
+              >
+                <LinkIcon size={16} />
+              </button>
+
+              <button
+                onClick={() => {
+                  const url = prompt("Enter image URL");
+                  if (url) editor.chain().focus().setImage({ src: url }).run();
+                }}
+              >
+                <ImageIcon size={16} />
+              </button>
             </div>
 
-            <div
-              ref={editorRef}
-              contentEditable
-              className="min-h-[400px] p-6 outline-none"
-              suppressContentEditableWarning
+            {/* EDITOR */}
+            <EditorContent
+              editor={editor}
+              className="min-h-[400px] p-6 outline-none prose dark:prose-invert max-w-none"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const text = editor.getText();
+                  const lines = text.split("\n");
+                  const lastLine = lines[lines.length - 1];
+
+                  if (lastLine.startsWith("/")) {
+                    e.preventDefault();
+                    handleSlashCommand(lastLine);
+
+                    editor
+                      .chain()
+                      .focus()
+                      .deleteRange({
+                        from: editor.state.selection.from - lastLine.length,
+                        to: editor.state.selection.from,
+                      })
+                      .run();
+                  }
+                }
+              }}
             />
           </div>
         </div>
 
+        {/* SIDEBAR */}
         <div className="space-y-4">
           <select
             value={category}
