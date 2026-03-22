@@ -4,17 +4,17 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
 
-  useEffect(() => {
-    if (loading) return;
+useEffect(() => {
+  if (isLoading) return;
 
-    if (user) {
-      navigate("/dashboard");
-    } else {
-      navigate("/login");
-    }
-  }, [user, loading, navigate]);
+  if (user) {
+    navigate("/dashboard");
+  } else {
+    navigate("/login");
+  }
+}, [user, isLoading, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

@@ -11,7 +11,7 @@ const Register = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"admin" | "employee">("employee");
+  const [role, setRole] = useState<"ADMIN" | "EMPLOYEE">("EMPLOYEE");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -143,7 +143,7 @@ const Register = () => {
 
             {/* ROLE */}
             <div className="flex gap-3">
-              {(["employee", "admin"] as const).map((r) => (
+              {(["EMPLOYEE", "ADMIN"] as const).map((r) => (
                 <button
                   key={r}
                   type="button"

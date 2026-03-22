@@ -33,7 +33,7 @@ export interface User {
   id: number | string;
   name: string;
   email: string;
-  role: "admin" | "employee"; // 🔥 stricter typing
+  role: "ADMIN" | "EMPLOYEE"; // 🔥 stricter typing
   status: "active" | "disabled";
   joined: string; // ✅ matches your AuthContext fix
 }
@@ -52,7 +52,7 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
-  role: "admin" | "employee"; // 🔥 REQUIRED FIX
+  role: "ADMIN" | "EMPLOYEE"; // 🔥 REQUIRED FIX
 }
 
 // ✅ FIXED: backend only returns token

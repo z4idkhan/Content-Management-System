@@ -10,7 +10,7 @@ const Register = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"admin" | "employee">("employee");
+  const [role, setRole] = useState<"ADMIN" | "EMPLOYEE">("EMPLOYEE");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -80,17 +80,17 @@ const Register = () => {
             <div>
               <label className="block text-sm font-medium text-foreground mb-3">Register as</label>
               <div className="flex gap-3">
-                <button type="button" onClick={() => setRole("employee")}
+                <button type="button" onClick={() => setRole("EMPLOYEE")}
                   className={`flex-1 py-2.5 rounded-md text-sm font-medium border transition-colors ${
-                    role === "employee"
+                    role === "EMPLOYEE"
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-secondary text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground"
                   }`}>
                   Employee
                 </button>
-                <button type="button" onClick={() => setRole("admin")}
+                <button type="button" onClick={() => setRole("ADMIN")}
                   className={`flex-1 py-2.5 rounded-md text-sm font-medium border transition-colors ${
-                    role === "admin"
+                    role === "ADMIN"
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-secondary text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground"
                   }`}>

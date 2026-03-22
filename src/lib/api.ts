@@ -100,7 +100,7 @@ export const authApi = {
     name: string,
     email: string,
     password: string,
-    role: "ADMIN" | "employee"
+    role: "ADMIN" | "EMPLOYEE"
   ) => {
     const res = await api.post("/auth/register", {
       name,

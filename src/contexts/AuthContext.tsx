@@ -20,7 +20,7 @@ interface AuthContextType {
     name: string,
     email: string,
     password: string,
-    role: "admin" | "employee"
+    role: "ADMIN" | "EMPLOYEE"
   ) => Promise<void>;
   logout: () => void;
 }
@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         id: "1",
         name: email.split("@")[0],
         email,
-        role: "admin",
+        role: "ADMIN",
         status: "active",
         joined: new Date().toISOString(),
       };
@@ -96,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     name: string,
     email: string,
     password: string,
-    role: "admin" | "employee"
+    role: "ADMIN" | "EMPLOYEE"
   ) => {
     try {
       // ✅ backend expects full user object
