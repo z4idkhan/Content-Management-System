@@ -14,18 +14,25 @@ import {
   Italic,
   Heading2,
   List,
-  Link as LinkIcon,
   Image as ImageIcon,
   Code,
 } from "lucide-react";
 import { toast } from "sonner";
 
+// TIPTAP (FIXED)
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
 import ImageExtension from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import Heading from "@tiptap/extension-heading";
+
+// SHADCN SELECT
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 const ArticleEditor = () => {
   const navigate = useNavigate();
@@ -42,23 +49,22 @@ const ArticleEditor = () => {
   const [initialLoading, setInitialLoading] = useState(true);
 
   // =========================
-  // TIPTAP EDITOR
+  // EDITOR (SAFE)
   // =========================
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Link,
       ImageExtension,
-      Heading.configure({ levels: [1, 2, 3] }),
       Placeholder.configure({
-        placeholder: "Start writing... Type '/' for commands",
+        placeholder: "Start writing...",
       }),
     ],
     content: "<p></p>",
+    immediatelyRender: false,
   });
 
   // =========================
-  // LOAD DATA
+  // LOAD DATA (FIXED)
   // =========================
   useEffect(() => {
     if (!editor) return;
@@ -67,23 +73,34 @@ const ArticleEditor = () => {
       try {
         setInitialLoading(true);
 
-        const cats = await categoriesApi.getAll();
-        setCategories(cats ?? []);
+        const res = await categoriesApi.getAll();
+
+        // ✅ FIX: normalize response
+        const cats: Category[] = Array.isArray(res)
+          ? res
+          : (res as any)?.data ||
+            (res as any)?.categories ||
+            [];
+
+        setCategories(cats);
 
         if (isEdit && id) {
-          const article: Article = await articlesApi.getById(id);
+          const articleRes = await articlesApi.getById(id);
 
-          if (!article) {
+          if (!articleRes || typeof articleRes !== "object") {
             toast.error("Article not found");
             navigate("/articles");
             return;
           }
 
-          setTitle(article.title ?? "");
-          setCategory(article.category ?? "");
-          setStatus(article.status ?? "draft");
+          const article: Article =
+            (articleRes as any)?.data || articleRes;
 
-          editor.commands.setContent(article.content || "<p></p>");
+          setTitle(article.title || "");
+          setCategory(article.category || "");
+          setStatus(article.status || "draft");
+
+          editor?.commands.setContent(article.content || "<p></p>");
         }
       } catch (err) {
         console.error(err);
@@ -94,22 +111,7 @@ const ArticleEditor = () => {
     };
 
     loadData();
-  }, [editor, id, isEdit, navigate]);
-
-  // =========================
-  // SLASH COMMAND
-  // =========================
-  const handleSlashCommand = (text: string) => {
-    if (!editor) return;
-
-    const cmd = text.trim().toLowerCase();
-
-    if (cmd === "/h1") editor.chain().focus().toggleHeading({ level: 1 }).run();
-    else if (cmd === "/h2") editor.chain().focus().toggleHeading({ level: 2 }).run();
-    else if (cmd === "/bullet") editor.chain().focus().toggleBulletList().run();
-    else if (cmd === "/code") editor.chain().focus().toggleCodeBlock().run();
-    else if (cmd === "/quote") editor.chain().focus().toggleBlockquote().run();
-  };
+  }, [editor, id]);
 
   // =========================
   // SAVE
@@ -123,11 +125,9 @@ const ArticleEditor = () => {
     try {
       setLoading(true);
 
-      const htmlContent = editor?.getHTML() || "<p></p>";
-
       const payload = {
         title: title.trim(),
-        content: htmlContent,
+        content: editor?.getHTML() || "<p></p>",
         category: category || "Uncategorized",
         status: saveStatus,
         author: user?.name || "Unknown",
@@ -153,12 +153,10 @@ const ArticleEditor = () => {
   // =========================
   // LOADING
   // =========================
-  if (initialLoading || !editor) {
+  if (initialLoading) {
     return (
       <DashboardLayout>
-        <div className="p-6 text-center text-muted-foreground">
-          Loading editor...
-        </div>
+        <div className="p-6 text-center">Loading...</div>
       </DashboardLayout>
     );
   }
@@ -183,7 +181,6 @@ const ArticleEditor = () => {
         <div className="flex gap-2">
           <button
             onClick={() => handleSave("draft")}
-            disabled={loading}
             className="px-4 py-2 bg-secondary rounded-md"
           >
             Save Draft
@@ -191,128 +188,96 @@ const ArticleEditor = () => {
 
           <button
             onClick={() => handleSave("published")}
-            disabled={loading}
-            className="px-4 py-2 bg-primary text-white rounded-md"
+            className="px-4 py-2 bg-gold text-black rounded-md"
           >
             {loading ? "Saving..." : "Publish"}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      {/* MAIN */}
+      <div className="flex gap-6">
         {/* EDITOR */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="flex-1 space-y-4">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Article title..."
-            className="w-full px-4 py-3 border rounded-lg"
+            className="w-full px-4 py-3 bg-secondary border rounded-lg"
           />
 
-          <div className="border rounded-lg overflow-hidden">
-            {/* TOOLBAR */}
-            <div className="flex gap-2 p-2 border-b">
-              <button onClick={() => editor.chain().focus().toggleBold().run()}>
-                <Bold size={16} />
-              </button>
+          {/* TOOLBAR */}
+          <div className="flex gap-2 border-b p-2">
+            <button onClick={() => editor?.chain().focus().toggleBold().run()}>
+              <Bold size={16} />
+            </button>
 
-              <button onClick={() => editor.chain().focus().toggleItalic().run()}>
-                <Italic size={16} />
-              </button>
+            <button onClick={() => editor?.chain().focus().toggleItalic().run()}>
+              <Italic size={16} />
+            </button>
 
-              <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
-                <Heading2 size={16} />
-              </button>
+            <button
+              onClick={() =>
+                editor?.chain().focus().toggleHeading({ level: 2 }).run()
+              }
+            >
+              <Heading2 size={16} />
+            </button>
 
-              <button onClick={() => editor.chain().focus().toggleBulletList().run()}>
-                <List size={16} />
-              </button>
+            <button
+              onClick={() =>
+                editor?.chain().focus().toggleBulletList().run()
+              }
+            >
+              <List size={16} />
+            </button>
 
-              <button onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
-                <Code size={16} />
-              </button>
+            <button
+              onClick={() =>
+                editor?.chain().focus().toggleCodeBlock().run()
+              }
+            >
+              <Code size={16} />
+            </button>
 
-              <button
-                onClick={() => {
-                  const url = prompt("Enter URL");
-                  if (url) editor.chain().focus().setLink({ href: url }).run();
-                }}
-              >
-                <LinkIcon size={16} />
-              </button>
-
-              <button
-                onClick={() => {
-                  const url = prompt("Enter image URL");
-                  if (url) editor.chain().focus().setImage({ src: url }).run();
-                }}
-              >
-                <ImageIcon size={16} />
-              </button>
-            </div>
-
-            {/* EDITOR */}
-            <EditorContent
-              editor={editor}
-              className="min-h-[400px] p-6 outline-none prose dark:prose-invert max-w-none"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  const text = editor.getText();
-                  const lines = text.split("\n");
-                  const lastLine = lines[lines.length - 1];
-
-                  if (lastLine.startsWith("/")) {
-                    e.preventDefault();
-                    handleSlashCommand(lastLine);
-
-                    editor
-                      .chain()
-                      .focus()
-                      .deleteRange({
-                        from: editor.state.selection.from - lastLine.length,
-                        to: editor.state.selection.from,
-                      })
-                      .run();
-                  }
+            <button
+              onClick={() => {
+                const url = prompt("Enter image URL");
+                if (url) {
+                  editor?.chain().focus().setImage({ src: url }).run();
                 }
               }}
-            />
+            >
+              <ImageIcon size={16} />
+            </button>
           </div>
+
+          {/* EDITOR */}
+          {editor && (
+            <EditorContent
+              editor={editor}
+              className="min-h-[400px] p-4 border rounded"
+            />
+          )}
         </div>
 
         {/* SIDEBAR */}
-        <div className="space-y-4">
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full p-2 border rounded"
-          >
-            <option value="">Select category</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+        <div className="w-[300px] space-y-4">
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
 
-          <div>
-            <p>Status:</p>
-            {(["draft", "published"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setStatus(s)}
-                className={`px-3 py-1 m-1 ${
-                  status === s
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+            <SelectContent>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.name}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          <p>Author: {user?.name || "Unknown"}</p>
+          <p>Author: {user?.name}</p>
         </div>
       </div>
     </DashboardLayout>

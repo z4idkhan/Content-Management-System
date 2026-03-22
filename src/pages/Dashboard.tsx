@@ -24,8 +24,6 @@ import {
   Legend,
 } from "recharts";
 
-// ❌ REMOVED axios + duplicate articlesApi
-
 // =========================
 // STATIC DATA
 // =========================
@@ -63,25 +61,34 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   // =========================
-  // FETCH
+  // FETCH (FIXED)
   // =========================
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        const [statsData, activityData, articlesData] =
+        const [statsData, activityData, articlesRes] =
           await Promise.all([
             dashboardApi.getStats(),
             dashboardApi.getRecentActivity(),
             articlesApi.getAll(),
           ]);
 
-        setStats(statsData);
-        setActivity(activityData);
-        setRecentArticles(articlesData.slice(0, 5));
+        // ✅ FIX 1: normalize articles response
+        const articles: Article[] = Array.isArray(articlesRes)
+          ? articlesRes
+          : (articlesRes as any)?.data ||
+            (articlesRes as any)?.articles ||
+            [];
+
+        setStats(statsData || null);
+        setActivity(Array.isArray(activityData) ? activityData : []);
+        setRecentArticles(articles.slice(0, 5)); // ✅ SAFE NOW
       } catch (err) {
-        console.error(err);
+        console.error("Dashboard error:", err);
+        setRecentArticles([]); // ✅ prevent crash
+        setActivity([]);
       } finally {
         setLoading(false);
       }
@@ -134,28 +141,40 @@ const Dashboard = () => {
         <div className="border rounded-lg p-5">
           <h2 className="font-semibold mb-4">Recent Articles</h2>
 
-          {recentArticles.map((a) => (
-            <div key={a.id} className="mb-2">
-              <p className="font-medium">{a.title}</p>
-              <p className="text-xs text-gray-500">
-                {a.author} · {a.createdAt}
-              </p>
-            </div>
-          ))}
+          {recentArticles.length > 0 ? (
+            recentArticles.map((a) => (
+              <div key={a.id} className="mb-2">
+                <p className="font-medium">{a.title}</p>
+                <p className="text-xs text-gray-500">
+                  {a.author} · {a.createdAt}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No articles found
+            </p>
+          )}
         </div>
 
         {/* ACTIVITY */}
         <div className="border rounded-lg p-5">
           <h2 className="font-semibold mb-4">Recent Activity</h2>
 
-          {activity.map((a) => (
-            <div key={a.id} className="mb-2">
-              <p>
-                <strong>{a.user}</strong> {a.message}
-              </p>
-              <p className="text-xs text-gray-500">{a.time}</p>
-            </div>
-          ))}
+          {activity.length > 0 ? (
+            activity.map((a) => (
+              <div key={a.id} className="mb-2">
+                <p>
+                  <strong>{a.user}</strong> {a.message}
+                </p>
+                <p className="text-xs text-gray-500">{a.time}</p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No activity found
+            </p>
+          )}
         </div>
       </div>
 

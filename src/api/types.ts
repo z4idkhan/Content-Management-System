@@ -1,5 +1,5 @@
 // ============================================================
-// Shared types for the Headless CMS API
+// Shared types for the Headless CMS API (FIXED)
 // ============================================================
 
 export interface Article {
@@ -28,14 +28,42 @@ export interface TagItem {
   articleCount: number;
 }
 
+// ✅ FIXED USER TYPE
 export interface User {
   id: number | string;
   name: string;
   email: string;
-  role: string;
+  role: "admin" | "employee"; // 🔥 stricter typing
   status: "active" | "disabled";
-  joined: string;
+  joined: string; // ✅ matches your AuthContext fix
 }
+
+// ============================================================
+// AUTH TYPES
+// ============================================================
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+// ✅ FIXED: added role (required by backend)
+export interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  role: "admin" | "employee"; // 🔥 REQUIRED FIX
+}
+
+// ✅ FIXED: backend only returns token
+export interface AuthResponse {
+  token: string;
+  // ❌ REMOVED user (backend doesn’t send it)
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
 
 export interface SiteSettings {
   siteName: string;
@@ -46,21 +74,9 @@ export interface SiteSettings {
   darkMode: boolean;
 }
 
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface RegisterData {
-  name: string;
-  email: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  user: User;
-}
+// ============================================================
+// DASHBOARD
+// ============================================================
 
 export interface DashboardStats {
   totalArticles: number;

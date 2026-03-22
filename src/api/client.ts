@@ -8,9 +8,7 @@
 // 3. All service files use this client — no other changes needed
 
 
-const BASE_URL =
-  (import.meta as any).env?.VITE_API_BASE_URL ||
-  "https://headless-cms-e1lg.onrender.com";
+const BASE_URL = "https://headless-cms-e1lg.onrender.com"; // ✅ YOUR DEPLOYED BACKEND
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("cms_token");
@@ -23,6 +21,8 @@ async function request<T>(
 ): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
 
+  console.log("API CALL →", url); // 🔥 DEBUG
+
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -34,10 +34,10 @@ async function request<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
+    console.error("API ERROR:", error);
     throw new Error(error.message || `API error: ${response.status}`);
   }
 
-  // Handle 204 No Content
   if (response.status === 204) {
     return undefined as T;
   }
@@ -46,8 +46,7 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get: <T>(endpoint: string) =>
-    request<T>(endpoint),
+  get: <T>(endpoint: string) => request<T>(endpoint),
 
   post: <T>(endpoint: string, body: unknown) =>
     request<T>(endpoint, {
