@@ -54,41 +54,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // =========================
   // LOGIN (FIXED)
   // =========================
-  const login = async (email: string, password: string) => {
-    try {
-      setIsLoading(true);
+ const login = async (email: string, password: string) => {
+  try {
+    setIsLoading(true);
 
-      // ✅ backend expects object
-      const res = await authApi.login({ email, password });
+    const res = await authApi.login({ email, password });
 
-      // ✅ backend returns { token }
-      if (!res?.token) {
-        throw new Error("Invalid response from server");
-      }
+    // ✅ SAVE TOKEN (MAIN FIX)
+    localStorage.setItem("cms_token", res.token);
 
-      // ✅ store token
-      localStorage.setItem("cms_token", res.token);
+    // ✅ CREATE USER (TYPE SAFE)
+    const userData: User = {
+      id: "1",
+      name: email.split("@")[0],
+      email,
+      role: "ADMIN",
+      status: "active",
+      joined: new Date().toISOString(),
+    };
 
-      // 🔥 OPTIONAL: create dummy user (since backend doesn't return user)
-      const userData: User = {
-        id: "1",
-        name: email.split("@")[0],
-        email,
-        role: "ADMIN",
-        status: "active",
-        joined: new Date().toISOString(),
-      };
+    setUser(userData);
+    localStorage.setItem("cms_user", JSON.stringify(userData));
 
-      setUser(userData);
-      localStorage.setItem("cms_user", JSON.stringify(userData));
-    } catch (err: any) {
-      console.error(err);
-      throw new Error(err?.message || "Login failed");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  } catch (err: any) {
+    throw new Error(err?.message || "Login failed");
+  } finally {
+    setIsLoading(false);
+  }
+};
   // =========================
   // REGISTER (FIXED)
   // =========================
