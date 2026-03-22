@@ -6,7 +6,7 @@ import axios from "axios";
 
 // 🔥 BASE API CONFIG
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080",
+  baseURL: "https://headless-cms-e1lg.onrender.com",
   headers: {
     "Content-Type": "application/json",
   },
