@@ -8,11 +8,16 @@
 // 3. All service files use this client — no other changes needed
 
 
-const BASE_URL = "https://headless-cms-e1lg.onrender.com"; // ✅ YOUR DEPLOYED BACKEND
+const BASE_URL = "https://headless-cms-e1lg.onrender.com"; 
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("cms_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+
+  
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
 async function request<T>(
@@ -21,16 +26,21 @@ async function request<T>(
 ): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
 
-  console.log("API CALL →", url); // 🔥 DEBUG
+  console.log("API CALL →", url);
 
   const response = await fetch(url, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
+      ...getAuthHeaders(),  
       ...(options.headers || {}),
     },
   });
+
+
+  console.log(
+    "TOKEN SENT →",
+    localStorage.getItem("cms_token")
+  );
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -46,7 +56,8 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get: <T>(endpoint: string) => request<T>(endpoint),
+  get: <T>(endpoint: string) =>
+    request<T>(endpoint),
 
   post: <T>(endpoint: string, body: unknown) =>
     request<T>(endpoint, {
