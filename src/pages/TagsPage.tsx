@@ -23,7 +23,7 @@ const Tags = () => {
       if (Array.isArray(data) && data.length > 0) {
         setTags(data);
       } else {
-        // ✅ Fallback (same as your UI screenshot)
+        
         setTags([
           { id: "1", name: "React", articleCount: 14 },
           { id: "2", name: "TypeScript", articleCount: 9 },
@@ -41,7 +41,7 @@ const Tags = () => {
     } catch (err) {
       console.error(err);
 
-      // fallback if API fails
+      
       setTags([
         { id: "1", name: "React", articleCount: 14 },
       ]);
